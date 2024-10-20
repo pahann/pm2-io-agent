@@ -17,7 +17,7 @@ const InteractorClient = require('./InteractorClient')
 const semver = require('semver')
 const path = require('path')
 const pkg = require('../package.json')
-const proxy = require('./proxy/proxy.js')
+const proxy = require('./proxy')
 
 
 global._logs = false
@@ -276,18 +276,18 @@ const InteractorDaemon = module.exports = class InteractorDaemon {
         return cb(new Error(`Endpoints field not present (${JSON.stringify(data)})`))
       }
 
-      // here we probably want to start our proxy with received endpoint
-      proxy.startProxy({
-        sourcePort: process.env.KM_OTEL_PROXY_PORT || 4317,
-        targetEndpoint: process.env.KM_OTEL_ENDPOINT || "http://localhost:4617"
-      }).then(() => {
-        console.log('Proxy started');
-        // only is proxy is active ? not sure about this
-        this.DAEMON_ACTIVE = true
-        this.transport.connect(data.endpoints, cb)
-      }).catch((err) => {
-        return cb(new Error(`error while starting proxy`, err))
-      });
+      // TODO: clarify this dependencies and the cases where we don't have them
+      if (process.env.KM_OTEL_PROXY_PORT && process.env.KM_OTEL_ENDPOINT && this.opts.PUBLIC_KEY) {
+        proxy.startProxy({
+          sourcePort: process.env.KM_OTEL_PROXY_PORT,
+          targetEndpoint: process.env.KM_OTEL_ENDPOINT,
+          tenantId: this.opts.PUBLIC_KEY,
+        })
+      }
+
+
+      this.DAEMON_ACTIVE = true
+      this.transport.connect(data.endpoints, cb)
 
     })
   }
